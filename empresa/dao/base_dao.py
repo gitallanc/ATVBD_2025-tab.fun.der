@@ -27,34 +27,73 @@ class BaseDAO(ABC, Generic[T]):
   @abstractmethod
   def to_dict(self, model: T) -> dict:
     pass
-
-  ### Create
-  # response = self._client.table(self._table_name).insert( ??? ).execute()
-
-  ### Read
+ # Create - função para criar algo na tabela:
+  def create(self, model: T) -> Optional[T]: #recebe um modelo genérico T
+        #Tratamento de erros
+        try:
+            data = self.to_dict(model) #conversão para dicionario
+            response = self.client.table(self.table_name).insert(data).execute() #comando para SUPABASE
+            if response.data: 
+                return self.to_model(response.data[0]) #Retornando do formato JSON (dict) para modelo de dados (T)
+            return None #retorna
+        #Caso de errado
+        except Exception as e:
+            print(f"Erro ao criar registro: {e}") #mensagem de erro
+            return None #retorna nada
+  
+  # Read
   def read(self, pk: str, value: T) -> Optional[T]:
     try:
       response = self._client.table(self._table_name).select('*').eq(pk, value).execute()
       if response.data and len(response.data) > 0:
         return self.to_model(response.data[0])
       return None
-    except Exception as e:
-      print(f'Erro ao buscar registro: {e}')
-      return None
-
-  # Retorna todos os valores de uma tabela
+    except Exception as e: 
+      print(f'erro ao buscar todos os registros: {e}')
+      return []
+  #Retorna todos os valores de uma tabela
   def read_all(self) -> List[T]:
     try:
       response = self._client.table(self._table_name).select('*').execute()
       if response.data:
         return [self.to_model(item) for item in response.data]
       return []
-    except Exception as e:
-      print(f'Erro ao buscar todos os registros: {e}')
+    except Exception as e: 
+      print(f'erro ao buscar todos os registros: {e}')
       return []
-    
-  ### Update
-  # response = self._client.table(self._table_name).update( ??? ).eq(pk, value).execute()
   
-  ### Delete
-  # response = self._client.table(self._table_name).delete().eq(pk, value).execute()
+  # Update
+  def update(self, record_id: int, model: T) -> Optional[T]:
+        #Tratamento de erros
+        try:
+            data = self.to_dict(model) # Do modelo de dados (T) para formato JSON (dict)
+            response = self._client.table(self._table_name).update(data).eq('id', record_id).execute() #
+            if response.data: #conexão com SUPABASE
+                return self.to_model(response.data[0]) #Retornando do formato JSON (dict) para modelo de dados (T)
+            return None #retorna nada
+        #caso de erro
+        except Exception as e:
+            print(f"Erro ao atualizar registro: {e}") #mensagem de erro
+            return None #retorna nada
+
+  # Delete
+  def delete(self, record_id: int) -> bool:
+    try:
+        response = (
+            self._client
+            .table(self._table_name)
+            .delete()
+            .eq('id', record_id)
+            .select("*")
+            .execute()
+        )
+
+        if not response.data:
+            print(f"Nenhum registro com id={record_id} foi encontrado.")
+            return False
+
+        return True
+
+    except Exception as e:
+        print(f"Erro ao deletar registro: {e}")
+        return False
